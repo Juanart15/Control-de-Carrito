@@ -1,3 +1,2 @@
 # Control-de-Carrito-Sensor HC-SR04
-Este proyecto permite controlar un carro con ESP32 mediante peticiones HTTP, en lugar de Bluetooth.
-Incluye una configuración dinámica de WiFi con portal cautivo, y conexión a un servidor MQTT para publicar tanto las instrucciones de movimiento como la simulación de lectura del sensor HC-SR04.
+Se utilizo el repositorio del control del carrito a traves de http y mqtt, hay una wiki especial para explicar la funcion realizada para la simulacion de la lectura del sesnor HC-SR04, ademas, dentro de la carpeta docs se adjuntan los archivos y evidencias necesarias para el funcionamiento total del carrito, en la carpeta docs_sensor, se adjuntan el archivo de la funcion de la lectura del sensor HC-SR04, se añade configuraciones para poderlo visulaizar de una forma funcional

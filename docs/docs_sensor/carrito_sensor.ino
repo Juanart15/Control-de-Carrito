@@ -2,7 +2,7 @@
 // Se agrega el archivo config, para generar por separado las constantes y parametros de configuracion para el fucinomaiento del codigo
 #include <WiFi.h>
 #include <PubSubClient.h>
-#include "config.h"  // Archivo con configuraciones
+#include "config.h_sensor"  // Archivo con configuraciones
 
 WiFiClient espClient;
 PubSubClient client(espClient);

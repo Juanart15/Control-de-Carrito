@@ -1,3 +1,5 @@
+// En este codigo se presenta el codigo funcional para la simulacion del sensor de ultrasonido, generando valores realistas de distancia y publicando estos en un tema MQTT independiente
+// Se agrega el archivo config, para generar por separado las constantes y parametros de configuracion para el fucinomaiento del codigo
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include "config.h"  // Archivo con configuraciones

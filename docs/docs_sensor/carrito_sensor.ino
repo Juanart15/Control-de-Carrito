@@ -1,14 +1,6 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
-
-// ================= CONFIGURACIÓN MQTT Y WIFI =================
-const char* ssid = "TuSSID";
-const char* password = "TuPASSWORD";
-const char* mqtt_server = "broker.hivemq.com";  // Puedes usar tu propio broker
-const int mqtt_port = 1883;
-
-// Tema MQTT específico para la simulación del sensor
-const char* topic_sensor = "carro/sensor/distancia";
+#include "config.h"  // Archivo con configuraciones
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -19,16 +11,16 @@ void setup_wifi() {
   delay(10);
   Serial.println();
   Serial.print("Conectando a ");
-  Serial.println(ssid);
+  Serial.println(WIFI_SSID);
 
-  WiFi.begin(ssid, password);
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
 
   Serial.println("");
-  Serial.println("WiFi conectado");
+  Serial.println("✅ WiFi conectado");
   Serial.print("Dirección IP: ");
   Serial.println(WiFi.localIP());
 }
@@ -63,15 +55,15 @@ void publicarDistancia() {
   float distancia = leerDistanciaSimulada();
   char msg[50];
   snprintf(msg, sizeof(msg), "{\"distancia\": %.2f}", distancia);
-  client.publish(topic_sensor, msg);
-  Serial.println("Distancia publicada en MQTT");
+  client.publish(MQTT_TOPIC_SENSOR, msg);
+  Serial.println("📡 Distancia publicada en MQTT");
 }
 
 // ================= SETUP =================
 void setup() {
   Serial.begin(115200);
   setup_wifi();
-  client.setServer(mqtt_server, mqtt_port);
+  client.setServer(MQTT_SERVER, MQTT_PORT);
   randomSeed(analogRead(0)); // Inicializa aleatoriedad
 }
 
@@ -83,8 +75,7 @@ void loop() {
   client.loop();
 
   unsigned long ahora = millis();
-  // Publicar cada 5 segundos
-  if (ahora - lastSensorRead > 5000) {
+  if (ahora - lastSensorRead > SENSOR_INTERVAL_MS) {
     lastSensorRead = ahora;
     publicarDistancia();
   }

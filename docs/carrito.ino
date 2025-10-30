@@ -1,3 +1,5 @@
+// Codigo completo que combina el todos los requisitos anteriores, añadiendo el funcionamiento del sensor de ultrasonido
+// Tambien se anexa el archivo config.h para separar los constantes y parametros de configuracion
 #include <WiFi.h>
 #include <WebServer.h>
 #include <PubSubClient.h>

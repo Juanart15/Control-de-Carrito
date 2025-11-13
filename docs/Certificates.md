@@ -34,3 +34,26 @@ Cuando un certificado expira, el ESP32 dejará de considerar válida la conexió
 
 12. ¿Qué teoría matemática es el fundamento de la criptografía moderna? ¿Cuáles son las posibles implicaciones de la computación cuántica para los métodos de criptografía actuales?
 La criptografía moderna se basa principalmente en la teoría de números, especialmente en problemas matemáticos difíciles de resolver como la factorización de números primos y el cálculo del logaritmo discreto. Estos problemas son la base de algoritmos como RSA y Diffie-Hellman, que permiten mantener la seguridad de la información en internet. Sin embargo, la aparición de la computación cuántica podría poner en riesgo estos sistemas. Los computadores cuánticos, mediante algoritmos como el de Shor, podrían resolver estos problemas en mucho menos tiempo, haciendo vulnerables los métodos de cifrado actuales. Por eso, se están desarrollando nuevas técnicas de criptografía post-cuántica que buscan resistir los ataques de este tipo de computadoras.
+
+## Prueba de Codigo
+
+## Prueba de conexión segura MQTT (ESP32 + HiveMQ)
+
+### Etapa 1: Puerto seguro (8883) sin certificados
+- Se modificó el puerto MQTT a `8883` y se usó `WiFiClientSecure`.
+- Resultado: ❌ No conecta, error TLS por falta de certificados.
+
+### Etapa 2: Conexión sin validación (`setInsecure()`)
+- Se añadió `espClient.setInsecure();`
+- Resultado: ✅ Conecta exitosamente, aunque sin seguridad completa.
+
+### Etapa 3: Con validación de certificados
+- Se agregó el certificado raíz de HiveMQ (`root_ca`).
+- Resultado: ✅ Conexión estable y segura por TLS.
+- Evidencia: Capturas del monitor serie mostrando “MQTT conectado (TLS)”.
+
+---
+
+## Conclusión
+Se verificó que el ESP32 requiere certificados válidos para establecer una conexión segura por MQTT.  
+La conexión sin validación (etapa 2) funciona pero **no es segura**, mientras que con el certificado cargado (etapa 3) se logra una comunicación **encriptada y autenticada**.

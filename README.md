@@ -1,2 +1,6 @@
+Dentro del repositorio hay una carpeta llamada "docs_certificate" dentro de ella se encuentra el archivo Certificate.md y el codigo de prueba que se utilizo en el trabajo
+
+
+
 # Control-de-Carrito-Sensor HC-SR04
 Se utilizo el repositorio del control del carrito a traves de http y mqtt, existen dos wikis, una para el home y hay una wiki especial para explicar la funcion realizada para la simulacion de la lectura del sesnor HC-SR04, ademas, dentro de la carpeta docs se adjuntan los archivos y evidencias necesarias para el funcionamiento total del carrito, en la carpeta docs_sensor, se adjuntan el archivo de la funcion de la lectura del sensor HC-SR04, se añade configuraciones para poderlo visualizar de una forma funcional

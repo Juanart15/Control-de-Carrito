@@ -8,7 +8,9 @@
 // ==========================
 // Objetos principales
 // ==========================
-WiFiClient espClient;
+
+//Modificar el código de conexión a MQTT para usar un puerto seguro. Sin hacer más cambios verificar que la conexión sigue  funcionando (¿o no?). 
+WiFiClientSecure espClient; //Realizado
 PubSubClient mqttClient(espClient);
 WebServer server(http_port);
 

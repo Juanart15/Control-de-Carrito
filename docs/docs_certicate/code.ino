@@ -11,6 +11,9 @@
 
 //Modificar el código de conexión a MQTT para usar un puerto seguro. Sin hacer más cambios verificar que la conexión sigue  funcionando (¿o no?). 
 WiFiClientSecure espClient; //Realizado
+
+// Realizar el cambio para validar certificados, verificar que sin más cambios la comunicación falla (sin cargar el certificado al ESP32). 
+espClient.setInsecure(); //Realizado
 PubSubClient mqttClient(espClient);
 WebServer server(http_port);
 

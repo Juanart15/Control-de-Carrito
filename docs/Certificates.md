@@ -1,39 +1,125 @@
-protocolo TLS y certificados 
-1. ¿Qué es TLS, por qué importa y qué es un certificado aquí?
-TLS es un protocolo que da cifrado, autenticación e integridad a las comunicaciones, en pocas palabras: que nadie lea lo que mandas, que nadie lo altere, y que hablas con quien crees que hablas. Importa porque sin eso cualquier intermediario en la red puede espiar o inyectar cosas, y porque muchos clientes y navegadores ya lo exigen como estándar para conexiones seguras tipo HTTPS o MQTT sobre TLS. En este contexto, un “certificado TLS” es un documento digital emitido por una autoridad que incluye la identidad del dominio y la clave pública del servidor, firmado para que el cliente pueda verificar esa identidad durante el handshake.​
+# 🛡️ Protocolo TLS y Certificados en el ESP32
 
-2. ¿A qué riesgos te expones si no usas TLS?
-A que alguien intercepte el tráfico y lea credenciales o payloads sensibles, típico en Wi‑Fi compartida o cuando el gateway no cifra nada, eso es un MitM de libro. También quedas vulnerable a manipulación de mensajes (integridad rota), por ejemplo cambiar un comando en un topic o inyectar respuestas falsas del broker, y además a suplantación de servidor porque el cliente no valida identidad.​
+## 1. ¿Qué es TLS, por qué importa y qué es un certificado aquí?
 
-3. ¿Qué es un CA (Certificate Authority)?
-Es una entidad de confianza que valida identidades y firma certificados, básicamente un notario criptográfico que dice “este dominio y esta clave pública sí van juntos”. Los clientes confían en una lista preinstalada de CAs, y si el certificado del servidor está firmado por alguna de esas (directa o mediante intermediarios), la validación pasa y se establece el canal seguro.​
+**TLS (Transport Layer Security)** es un protocolo que proporciona **cifrado, autenticación e integridad** en las comunicaciones.  
+En otras palabras:
+- Evita que terceros lean los datos transmitidos.  
+- Asegura que la información no sea alterada.  
+- Verifica que el servidor con el que te comunicas sea realmente quien dice ser.  
 
-4. ¿Qué es una cadena de certificados y vigencia promedio de sus eslabones?
-Es la ruta de confianza desde el certificado del servidor (hoja) hasta un root CA del sistema, normalmente: servidor → uno o más intermediarios → root en el almacén del cliente. En tiempos, los roots viven muchos años (varios hasta 20–25 años), los intermedios duran menos (usualmente 1–5 años), y los certificados de servidor suelen tener vigencias cortas, a veces de meses a 1–2 años según políticas actuales de emisión.​
+Un **certificado TLS** es un documento digital emitido por una **autoridad certificadora (CA)** que asocia la identidad de un dominio con una clave pública. El cliente lo usa para validar la autenticidad del servidor durante el *handshake*.
 
-5. ¿Qué es un keystore y qué es un certificate bundle?
-Keystore es un almacén que guarda tu identidad: certificado más su clave privada, se usa para presentarte y firmar, por ejemplo en un servidor o en el cliente si hay autenticación mutua; en Java también existe el truststore que guarda CAs para verificar al otro. Un certificate bundle es el paquetito de certificados concatenados (por ejemplo PEM) que incluye el del servidor y la(s) cadena(s) intermedia(s) para que el cliente pueda construir la ruta hasta un root confiable sin quedarse a medias.​
+---
 
-6. ¿Qué es la autenticación mutua en TLS?
-Es cuando no solo el cliente valida al servidor, sino que el servidor también pide y valida el certificado del cliente, así ambos prueban su identidad antes de intercambiar datos. Esto reduce suplantaciones en servicios internos o APIs críticas, porque un atacante no solo tendría que interceptar, también tendría que tener un certificado de cliente válido emitido por una CA de confianza del servidor.​
+## 2. ¿A qué riesgos te expones si no usas TLS?
 
-7. ¿Cómo se habilita la validación de certificados en el ESP32?
-La validación de certificados en el ESP32 se habilita al establecer una conexión segura mediante el protocolo TLS. Para hacerlo, se utiliza la librería WiFiClientSecure, que permite incluir un certificado raíz (CA) dentro del código o almacenarlo en la memoria del dispositivo. De esta forma, el ESP32 puede verificar que el servidor con el que se comunica es legítimo y que el certificado ha sido emitido por una autoridad confiable. Esto garantiza una conexión segura y protege los datos frente a ataques de tipo “man-in-the-middle”.
+Sin TLS, la comunicación queda expuesta a ataques de tipo **“man-in-the-middle” (MitM)**, donde un atacante puede:
+- Interceptar credenciales o datos sensibles.  
+- Modificar comandos MQTT o inyectar mensajes falsos.  
+- Suplantar la identidad del servidor.  
 
-8. Si el sketch necesita conectarse a múltiples dominios con certificados generados por CAs distintos, ¿qué alternativas hay?
-Cuando el ESP32 necesita conectarse a varios dominios con diferentes autoridades certificadoras, existen distintas opciones. Una de ellas es incluir todos los certificados raíz necesarios en el código y seleccionar el adecuado según el dominio. Otra alternativa es almacenarlos en el sistema de archivos del dispositivo, lo que facilita su actualización sin recompilar el programa. También es posible usar huellas digitales (fingerprints) del certificado, aunque esta opción requiere cambiar el valor cuando el certificado se renueva. Por último, se puede optar por unificar los certificados bajo una misma autoridad certificadora si los dominios son propios, lo que simplifica la validación.
+Esto compromete la **confidencialidad, integridad y autenticidad** de toda la comunicación.
 
-9. ¿Cómo se puede obtener el certificado para un dominio?
-El certificado de un dominio puede obtenerse de diferentes maneras. Una forma sencilla es a través del navegador web, accediendo al sitio HTTPS, haciendo clic en el candado de seguridad y exportando el certificado en formato PEM o DER. También puede generarse mediante servicios gratuitos como Let’s Encrypt, que ofrecen certificados válidos y reconocidos por los navegadores. Si se tiene un dominio propio, la autoridad certificadora proporcionará el archivo correspondiente al momento de emitir el certificado. Ese archivo puede cargarse en el ESP32 para validar las conexiones seguras.
+---
 
-10. ¿A qué se hace referencia cuando se habla de llave pública y privada en el contexto de TLS?
-En el contexto de TLS, las llaves pública y privada son un par criptográfico que se utiliza para cifrar y descifrar la información transmitida. La llave pública puede compartirse libremente y sirve para verificar la identidad del servidor o cifrar datos que solo la llave privada puede descifrar. La llave privada, en cambio, se mantiene en secreto y garantiza que solo el servidor legítimo pueda leer o firmar la información. Este mecanismo permite que los datos viajen de forma segura, incluso a través de redes no confiables.
+## 3. ¿Qué es una CA (Certificate Authority)?
 
-11. ¿Qué pasará con el código cuando los certificados expiren?
-Cuando un certificado expira, el ESP32 dejará de considerar válida la conexión y no podrá comunicarse con el servidor de manera segura. Esto provocará errores al intentar establecer conexiones HTTPS hasta que se actualice el certificado. Si el certificado está embebido en el código, será necesario actualizar el firmware; si está guardado en el sistema de archivos, bastará con reemplazar el archivo antiguo por el nuevo. Por esta razón, es importante tener un plan de mantenimiento o renovación de certificados antes de su fecha de vencimiento.
+Una **CA** es una entidad de confianza que valida identidades y **firma certificados digitales**.  
+Actúa como un **notario criptográfico**, certificando que un dominio realmente pertenece a quien dice ser.  
+Los sistemas incluyen listas de CAs confiables preinstaladas para verificar estas firmas.
 
-12. ¿Qué teoría matemática es el fundamento de la criptografía moderna? ¿Cuáles son las posibles implicaciones de la computación cuántica para los métodos de criptografía actuales?
-La criptografía moderna se basa principalmente en la teoría de números, especialmente en problemas matemáticos difíciles de resolver como la factorización de números primos y el cálculo del logaritmo discreto. Estos problemas son la base de algoritmos como RSA y Diffie-Hellman, que permiten mantener la seguridad de la información en internet. Sin embargo, la aparición de la computación cuántica podría poner en riesgo estos sistemas. Los computadores cuánticos, mediante algoritmos como el de Shor, podrían resolver estos problemas en mucho menos tiempo, haciendo vulnerables los métodos de cifrado actuales. Por eso, se están desarrollando nuevas técnicas de criptografía post-cuántica que buscan resistir los ataques de este tipo de computadoras.
+---
+
+## 4. ¿Qué es una cadena de certificados y vigencia promedio de sus eslabones?
+
+Una **cadena de certificados** conecta el certificado del servidor con un **root CA** reconocido:  
+`Servidor → Intermediarios → Root CA`
+
+- **Root CA:** vigencia de hasta 20–25 años.  
+- **Certificados intermedios:** duran entre 1–5 años.  
+- **Certificados de servidor:** normalmente 3 meses a 2 años.  
+
+---
+
+## 5. ¿Qué es un keystore y qué es un certificate bundle?
+
+- **Keystore:** almacena el certificado y su clave privada, usado para identificarse (por ejemplo, un servidor).  
+- **Certificate bundle:** archivo que agrupa varios certificados (por ejemplo, en formato `.pem`) para formar la cadena completa de confianza.
+
+---
+
+## 6. ¿Qué es la autenticación mutua en TLS?
+
+Es cuando **tanto el cliente como el servidor presentan y validan certificados**.  
+Esto garantiza que ambos sean legítimos antes de intercambiar datos.  
+Se usa en **servicios internos o APIs críticas** donde la seguridad es esencial.
+
+---
+
+## 7. ¿Cómo se habilita la validación de certificados en el ESP32?
+
+En el ESP32 se usa la librería **`WiFiClientSecure`**, que permite establecer conexiones cifradas mediante TLS.  
+Se puede:
+- Incluir el **certificado raíz (CA)** en el código.  
+- O almacenarlo en el sistema de archivos del ESP32.  
+
+Esto permite al dispositivo **verificar la identidad del servidor** y proteger la conexión contra ataques MitM.
+
+---
+
+## 8. ¿Qué hacer si el ESP32 se conecta a múltiples dominios con distintas CAs?
+
+Opciones posibles:
+- Incluir **varios certificados raíz** y seleccionar el correcto según el dominio.  
+- Guardar los certificados en el **sistema de archivos** (para actualizarlos sin recompilar).  
+- Usar **huellas digitales (fingerprints)**, aunque deben actualizarse con cada renovación.  
+- O unificar los dominios bajo una misma CA si son propios.
+
+---
+
+## 9. ¿Cómo se obtiene el certificado para un dominio?
+
+Formas comunes:
+- Desde el **navegador**, accediendo al candado HTTPS y exportando el certificado en formato `.PEM` o `.DER`.  
+- Usando **servicios gratuitos como Let’s Encrypt**.  
+- O solicitándolo a una **autoridad certificadora** oficial al registrar un dominio.  
+
+Este archivo se carga luego en el ESP32 para establecer conexiones seguras.
+
+---
+
+## 10. ¿Qué son la llave pública y privada en TLS?
+
+- La **llave pública** se comparte libremente y permite cifrar datos o verificar firmas.  
+- La **llave privada** se mantiene en secreto y se usa para descifrar datos o firmar mensajes.  
+
+Este par criptográfico garantiza que solo el dueño legítimo pueda leer o firmar la información.
+
+---
+
+## 11. ¿Qué pasa cuando los certificados expiran?
+
+Cuando un certificado expira:
+- El ESP32 ya **no considerará válida la conexión** TLS.  
+- Las conexiones HTTPS/MQTT fallarán hasta que se actualice el certificado.  
+
+Si el certificado está:
+- **Embebido en el código:** se debe recompilar el firmware.  
+- **En el sistema de archivos:** basta con reemplazar el archivo.  
+
+Por eso, se recomienda **planificar la renovación periódica** antes del vencimiento.
+
+---
+
+## 12. Fundamento matemático y computación cuántica
+
+La criptografía moderna se basa en **teoría de números**, especialmente en problemas difíciles como:
+- **Factorización de primos (RSA)**  
+- **Logaritmo discreto (Diffie-Hellman, ECC)**  
+
+La **computación cuántica** podría romper estos esquemas con algoritmos como el de **Shor**, reduciendo drásticamente la dificultad de estos problemas.  
+Por ello, se están desarrollando sistemas de **criptografía post-cuántica**, resistentes a futuros ataques cuánticos.
 
 ## Prueba de Codigo
 
@@ -41,16 +127,23 @@ La criptografía moderna se basa principalmente en la teoría de números, espec
 
 ### Etapa 1: Puerto seguro (8883) sin certificados
 - Se modificó el puerto MQTT a `8883` y se usó `WiFiClientSecure`.
-- Resultado: ❌ No conecta, error TLS por falta de certificados.
+- **Resultado:**
+<img width="840" height="370" alt="image" src="https://github.com/user-attachments/assets/3e6c3b23-5d0d-4067-a893-4af07abba572" />
+
 
 ### Etapa 2: Conexión sin validación (`setInsecure()`)
 - Se añadió `espClient.setInsecure();`
-- Resultado: ✅ Conecta exitosamente, aunque sin seguridad completa.
+- **Resultado:** Conecta exitosamente, aunque sin seguridad completa.
+- **Evidencia:**
+<img width="929" height="437" alt="image" src="https://github.com/user-attachments/assets/42e54ed6-633e-4efe-9f6d-a8be6c5758d6" />
+
 
 ### Etapa 3: Con validación de certificados
 - Se agregó el certificado raíz de HiveMQ (`root_ca`).
-- Resultado: ✅ Conexión estable y segura por TLS.
-- Evidencia: Capturas del monitor serie mostrando “MQTT conectado (TLS)”.
+- **Resultado:** Conexión estable y segura por TLS.
+- **Evidencia:**
+<img width="747" height="521" alt="image" src="https://github.com/user-attachments/assets/103ca72b-d7df-4a72-9571-a0148bea8892" />
+
 
 ---
 

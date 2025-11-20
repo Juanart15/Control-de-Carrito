@@ -1,0 +1,358 @@
+/* ESP32: REST API + MQTT sobre TLS
+   + Sensor HC-SR04 → publica en carrito/sensor
+*/
+
+#include <WiFi.h>
+#include <WebServer.h>
+#include <WiFiClientSecure.h>
+#include <PubSubClient.h>
+#include <ArduinoJson.h>
+
+// ========== CONFIG ==========
+
+// Pines motores
+#define ENA_PIN 13
+#define ENB_PIN 12
+#define IN1_PIN 14
+#define IN2_PIN 27
+#define IN3_PIN 26
+#define IN4_PIN 25
+
+// Pines sensor ultrasonido (CORREGIDOS)
+#define TRIG_PIN 32   // OUTPUT
+#define ECHO_PIN 35   // INPUT
+#define BUZZER_PIN 33
+
+// WiFi
+const char* WIFI_SSID = "Iphone de Juan Camilo";
+const char* WIFI_PASS = "1234567890";
+
+// MQTT TLS
+const char* mqttUser = "usuarioesp32";
+const char* mqttPass = "Password1";
+const char* MQTT_SERVER = "f2aecae8cf734a3ab0b875bb11e4b3b7.s1.eu.hivemq.cloud";
+const int   MQTT_PORT   = 8883;
+const char* MQTT_TOPIC_MOV   = "carro/movimiento";
+const char* MQTT_TOPIC_CTRL  = "carro/control";
+const char* MQTT_TOPIC_SENSOR = "carro/sensor";
+
+// HTTP
+const int HTTP_PORT = 80;
+
+// PWM
+#define PWM_FREQ       1000
+#define PWM_RESOLUTION 8
+#define PWM_CH_A       0
+#define PWM_CH_B       1
+
+
+// ======= CERTIFICADO CA =======
+const char ca_pem[] = R"EOF(
+-----BEGIN CERTIFICATE-----
+MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
+TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
+cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMTUwNjA0MTEwNDM4
+WhcNMzUwNjA0MTEwNDM4WjBPMQswCQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJu
+ZXQgU2VjdXJpdHkgUmVzZWFyY2ggR3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBY
+MTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBAK3oJHP0FDfzm54rVygc
+h77ct984kIxuPOZXoHj3dcKi/vVqbvYATyjb3miGbESTtrFj/RQSa78f0uoxmyF+
+0TM8ukj13Xnfs7j/EvEhmkvBioZxaUpmZmyPfjxwv60pIgbz5MDmgK7iS4+3mX6U
+A5/TR5d8mUgjU+g4rk8Kb4Mu0UlXjIB0ttov0DiNewNwIRt18jA8+o+u3dpjq+sW
+T8KOEUt+zwvo/7V3LvSye0rgTBIlDHCNAymg4VMk7BPZ7hm/ELNKjD+Jo2FR3qyH
+B5T0Y3HsLuJvW5iB4YlcNHlsdu87kGJ55tukmi8mxdAQ4Q7e2RCOFvu396j3x+UC
+B5iPNgiV5+I3lg02dZ77DnKxHZu8A/lJBdiB3QW0KtZB6awBdpUKD9jf1b0SHzUv
+KBds0pjBqAlkd25HN7rOrFleaJ1/ctaJxQZBKT5ZPt0m9STJEadao0xAH0ahmbWn
+OlFuhjuefXKnEgV4We0+UXgVCwOPjdAvBbI+e0ocS3MFEvzG6uBQE3xDk3SzynTn
+jh8BCNAw1FtxNrQHusEwMFxIt4I7mKZ9YIqioymCzLq9gwQbooMDQaHWBfEbwrbw
+qHyGO0aoSCqI3Haadr8faqU9GY/rOPNk3sgrDQoo//fb4hVC1CLQJ13hef4Y53CI
+rU7m2Ys6xt0nUW7/vGT1M0NPAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNV
+HRMBAf8EBTADAQH/MB0GA1UdDgQWBBR5tFnme7bl5AFzgAiIyBpY9umbbjANBgkq
+hkiG9w0BAQsFAAOCAgEAVR9YqbyyqFDQDLHYGmkgJykIrGF1XIpu+ILlaS/V9lZL
+ubhzEFnTIZd+50xx+7LSYK05qAvqFyFWhfFQDlnrzuBZ6brJFe+GnY+EgPbk6ZGQ
+3BebYhtF8GaV0nxvwuo77x/Py9auJ/GpsMiu/X1+mvoiBOv/2X/qkSsisRcOj/KK
+NFtY2PwByVS5uCbMiogziUwthDyC3+6WVwW6LLv3xLfHTjuCvjHIInNzktHCgKQ5
+ORAzI4JMPJ+GslWYHb4phowim57iaztXOoJwTdwJx4nLCgdNbOhdjsnvzqvHu7Ur
+TkXWStAmzOVyyghqpZXjFaH3pO3JLF+l+/+sKAIuvtd7u+Nxe5AW0wdeRlN8NwdC
+jNPElpzVmbUq4JUagEiuTDkHzsxHpFKVK7q4+63SM1N95R1NbdWhscdCb+ZAJzVc
+oyi3B43njTOQ5yOf+1CceWxG1bQVs5ZufpsMljq4Ui0/1lvh+wjChP4kqKOJ2qxq
+4RgqsahDYVvTH9w7jXbyLeiNdd8XM2w9U/t7y0Ff/9yi0GE44Za4rF2LN9d11TPA
+mRGunUHBcnWEvgJBQl9nJEiU0Zsnvgc/ubhPgXRR4Xq37Z0j4r7g1SgEEzwxA57d
+emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
+-----END CERTIFICATE-----
+)EOF";
+
+// ========== OBJETOS ==========
+WebServer server(HTTP_PORT);
+WiFiClientSecure secureClient;
+PubSubClient mqttClient(secureClient);
+
+// Estado
+String lastCommandJson = "{\"status\":\"none\"}";
+unsigned long moveEndTime = 0;
+bool motorsActive = false;
+
+// =====================================================
+// ===================== PWM INIT =======================
+// =====================================================
+void pwmInit(){
+  ledcSetup(PWM_CH_A, PWM_FREQ, PWM_RESOLUTION);
+  ledcAttachPin(ENA_PIN, PWM_CH_A);
+  ledcSetup(PWM_CH_B, PWM_FREQ, PWM_RESOLUTION);
+  ledcAttachPin(ENB_PIN, PWM_CH_B);
+}
+
+// =====================================================
+// =============== SENSOR HC-SR04 ========================
+// =====================================================
+float readDistanceCM(){
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(3);
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+
+  long duration = pulseIn(ECHO_PIN, HIGH, 25000); // timeout 25ms
+
+  if (duration == 0) return -1;
+
+  return duration * 0.0343 / 2.0;
+}
+
+unsigned long lastSensorTime = 0;
+
+// =====================================================
+// ================== MOVIMIENTO ========================
+// =====================================================
+void stopMotors(){
+  digitalWrite(IN1_PIN, LOW);
+  digitalWrite(IN2_PIN, LOW);
+  digitalWrite(IN3_PIN, LOW);
+  digitalWrite(IN4_PIN, LOW);
+  ledcWrite(PWM_CH_A, 0);
+  ledcWrite(PWM_CH_B, 0);
+  motorsActive = false;
+}
+
+void applyMovement(const char* dir, int speed){
+  int duty = constrain(speed, 0, 255);
+  int maxVal = (1<<PWM_RESOLUTION)-1;
+  int duty_scaled = map(duty, 0, 255, 0, maxVal);
+
+  if (strcmp(dir, "forward") == 0){
+    digitalWrite(IN1_PIN, LOW);
+    digitalWrite(IN2_PIN, HIGH);
+    digitalWrite(IN3_PIN, LOW);
+    digitalWrite(IN4_PIN, HIGH);
+  } 
+  else if (strcmp(dir, "backward") == 0){
+    digitalWrite(IN1_PIN, HIGH);
+    digitalWrite(IN2_PIN, LOW);
+    digitalWrite(IN3_PIN, HIGH);
+    digitalWrite(IN4_PIN, LOW);
+  } 
+  else if (strcmp(dir, "left") == 0){
+    digitalWrite(IN1_PIN, HIGH);
+    digitalWrite(IN2_PIN, LOW);
+    digitalWrite(IN3_PIN, LOW);
+    digitalWrite(IN4_PIN, LOW);
+    ledcWrite(PWM_CH_B, 0);
+  } 
+  else if (strcmp(dir, "right") == 0){
+    digitalWrite(IN1_PIN, LOW);
+    digitalWrite(IN2_PIN, LOW);
+    digitalWrite(IN3_PIN, HIGH);
+    digitalWrite(IN4_PIN, LOW);
+    ledcWrite(PWM_CH_A, 0);
+  }
+  else {
+    stopMotors();
+    return;
+  }
+
+  ledcWrite(PWM_CH_A, duty_scaled);
+  ledcWrite(PWM_CH_B, duty_scaled);
+  motorsActive = true;
+}
+
+// =====================================================
+// ============ PARSER COMÚN (POST + MQTT) ==============
+// =====================================================
+void parseAndExecuteCommand(String body) {
+
+  body.trim();
+  Serial.println("Procesando comando: " + body);
+
+  int idx1 = body.indexOf(' ');
+  int idx2 = body.lastIndexOf(' ');
+
+  if (idx1 < 0 || idx2 < 0 || idx1 == idx2) {
+    Serial.println("Error formato de comando");
+    return;
+  }
+
+  String dir = body.substring(0, idx1);
+  int speed = body.substring(idx1 + 1, idx2).toInt();
+  int duration = body.substring(idx2 + 1).toInt();
+
+  Serial.printf("Dir=%s | Vel=%d | Dur=%d\n", dir.c_str(), speed, duration);
+
+  applyMovement(dir.c_str(), speed);
+  moveEndTime = millis() + duration * 1000UL;
+
+  lastCommandJson = "{\"direccion\":\"" + dir +
+                    "\",\"velocidad\":" + speed +
+                    ",\"duracion\":" + duration + "}";
+}
+
+// =====================================================
+// ===================== MQTT ===========================
+// =====================================================
+void mqttCallback(char* topic, byte* payload, unsigned int length){
+  Serial.print("MQTT mensaje recibido: ");
+  Serial.println(topic);
+
+  String msg;
+  for (int i=0; i<length; i++) msg += (char)payload[i];
+
+  Serial.println("Contenido: " + msg);
+
+  parseAndExecuteCommand(msg);
+}
+
+void mqttEnsureConnected(){
+  if (mqttClient.connected()) return;
+
+  Serial.println("Intentando conectar MQTT (TLS)...");
+
+  String clientId = "ESP32_" + String((uint64_t)ESP.getEfuseMac(), HEX);
+
+  if (mqttClient.connect(clientId.c_str(), mqttUser, mqttPass)) {
+    Serial.println("MQTT conectado (TLS)");
+    mqttClient.subscribe(MQTT_TOPIC_CTRL);
+  }
+  else {
+    Serial.print("MQTT fallo rc=");
+    Serial.println(mqttClient.state());
+  }
+}
+
+// =====================================================
+// ===================== HTTP ===========================
+// =====================================================
+void handleHealth(){
+  StaticJsonDocument<128> doc;
+  doc["status"] = "ok";
+  doc["ip"] = WiFi.localIP().toString();
+  doc["mqtt_connected"] = mqttClient.connected();
+  String out; serializeJson(doc,out);
+  server.send(200, "application/json", out);
+}
+
+void handleMovePOST() {
+  String body = server.arg("plain");
+
+  if (body.length() == 0) {
+    server.send(400, "text/plain", "Error: no se recibió contenido.");
+    return;
+  }
+
+  Serial.println("POST recibido: " + body);
+
+  parseAndExecuteCommand(body);
+
+  if (mqttClient.connected())
+    mqttClient.publish(MQTT_TOPIC_MOV, body.c_str());
+
+  server.send(200, "text/plain", "OK");
+}
+
+void handleMoveGET(){
+  server.send(200, "application/json", lastCommandJson);
+}
+
+// =====================================================
+// ===================== SETUP ==========================
+// =====================================================
+void setup(){
+  Serial.begin(115200);
+  delay(200);
+
+  pinMode(IN1_PIN, OUTPUT);
+  pinMode(IN2_PIN, OUTPUT);
+  pinMode(IN3_PIN, OUTPUT);
+  pinMode(IN4_PIN, OUTPUT);
+
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW);
+
+  pwmInit();
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+
+  Serial.printf("Conectando WiFi %s ...\n", WIFI_SSID);
+  while (WiFi.status() != WL_CONNECTED){
+    delay(200);
+    Serial.print(".");
+  }
+  Serial.println("\nWiFi conectado: " + WiFi.localIP().toString());
+
+  secureClient.setCACert(ca_pem);
+  mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
+  mqttClient.setCallback(mqttCallback);
+
+  server.on("/api/v1/healthcheck", HTTP_GET, handleHealth);
+  server.on("/api/v1/move", HTTP_POST, handleMovePOST);
+  server.on("/api/v1/move", HTTP_GET, handleMoveGET);
+  server.begin();
+  Serial.println("HTTP server listo en puerto 80");
+}
+
+// =====================================================
+// ====================== LOOP ==========================
+// =====================================================
+void loop(){
+  server.handleClient();
+  mqttEnsureConnected();
+  mqttClient.loop();
+
+  unsigned long now = millis();
+
+  // ---------- Movimiento ----------
+  if (motorsActive && moveEndTime != 0 && now >= moveEndTime){
+    stopMotors();
+    moveEndTime = 0;
+    Serial.println("Movimiento finalizado");
+  }
+
+  // ---------- SENSOR cada 300ms ----------
+if (now - lastSensorTime >= 300) {
+    lastSensorTime = now;
+
+    float d = readDistanceCM();
+
+    Serial.print("Distancia: ");
+    Serial.println(d);
+
+    const char* alerta = (d > 0 && d < 15) ? "OBJETO_CERCA" : "OK";
+
+    // JSON para enviar al MQTT
+    StaticJsonDocument<128> doc;
+    doc["distancia"] = d;
+    doc["alerta"] = alerta;
+
+    char buffer[128];
+    size_t len = serializeJson(doc, buffer);
+
+    mqttClient.publish(MQTT_TOPIC_SENSOR, buffer, len);
+
+    // --- CONTROL DEL BUZZER ---
+    if (d > 0 && d < 15) {
+        digitalWrite(BUZZER_PIN, HIGH);   // suena
+    } else {
+        digitalWrite(BUZZER_PIN, LOW);    // apagado
+    }
+}
+}

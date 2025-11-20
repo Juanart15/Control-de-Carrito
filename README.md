@@ -1,3 +1,6 @@
+Lo perteneciente al carrito se encuentra en docs_proyecto y en la eiki adjunto al link en teams
+
+
 Dentro del repositorio hay una carpeta llamada "docs_certificate" dentro de ella se encuentra el archivo Certificate.md y el codigo de prueba que se utilizo en el trabajo
 
 

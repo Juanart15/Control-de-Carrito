@@ -24,8 +24,8 @@
 #define BUZZER_PIN 33
 
 // WiFi
-const char* WIFI_SSID = "Iphone de Juan Camilo";
-const char* WIFI_PASS = "1234567890";
+const char* WIFI_SSID = "iPhone de Juan Felipe";
+const char* WIFI_PASS = "Lukas123";
 
 // MQTT TLS
 const char* mqttUser = "usuarioesp32";
@@ -133,18 +133,26 @@ void stopMotors(){
   motorsActive = false;
 }
 
+void activarBuzzerYDetener() {
+    digitalWrite(BUZZER_PIN, HIGH);  // Suena el buzzer
+    stopMotors();                    // Frena el carrito de inmediato
+    moveEndTime = 0;                 // Cancela cualquier movimiento pendiente
+    motorsActive = false;
+}
+
+
 void applyMovement(const char* dir, int speed){
   int duty = constrain(speed, 0, 255);
   int maxVal = (1<<PWM_RESOLUTION)-1;
   int duty_scaled = map(duty, 0, 255, 0, maxVal);
 
-  if (strcmp(dir, "forward") == 0){
+  if (strcmp(dir, "backward") == 0){
     digitalWrite(IN1_PIN, LOW);
     digitalWrite(IN2_PIN, HIGH);
     digitalWrite(IN3_PIN, LOW);
     digitalWrite(IN4_PIN, HIGH);
   } 
-  else if (strcmp(dir, "backward") == 0){
+  else if (strcmp(dir, "forward") == 0){
     digitalWrite(IN1_PIN, HIGH);
     digitalWrite(IN2_PIN, LOW);
     digitalWrite(IN3_PIN, HIGH);
@@ -350,9 +358,9 @@ if (now - lastSensorTime >= 300) {
 
     // --- CONTROL DEL BUZZER ---
     if (d > 0 && d < 15) {
-        digitalWrite(BUZZER_PIN, HIGH);   // suena
-    } else {
-        digitalWrite(BUZZER_PIN, LOW);    // apagado
-    }
+    activarBuzzerYDetener();
+} else {
+    digitalWrite(BUZZER_PIN, LOW);
+}
 }
 }
